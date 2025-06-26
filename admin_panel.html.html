@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>One Gate Admin Panel</title>
+  <link href="./tailwind.min.css" rel="stylesheet">
+  <style>
+    /* Custom styles to override or enhance Tailwind */
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f5f7fa; /* Light gray background */
+    }
+    input, select {
+      padding: 8px;
+      margin: 4px;
+      border-radius: 0.5rem; /* rounded corners */
+      border: 1px solid #d1d5db; /* Light border */
+    }
+    button {
+      padding: 8px 16px; /* Slightly larger padding for buttons */
+      border: none;
+      border-radius: 0.5rem; /* rounded corners */
+      margin: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background-color 0.2s ease;
+    }
+    button.edit { background-color: #ffc107; color: black; } /* Yellow */
+    button.edit:hover { background-color: #e0a800; }
+    button.update { background-color: #28a745; color: white; } /* Green */
+    button.update:hover { background-color: #218838; }
+    button.delete { background-color: #dc3545; color: white; } /* Red */
+    button.delete:hover { background-color: #c82333; }
+    button.add { background-color: #007bff; color: white; } /* Blue */
+    button.add:hover { background-color: #0069d9; }
+    .google-signin-btn {
+        background-color: #4285F4;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+    }
+    .google-signin-btn:hover {
+        background-color: #357ae8;
+    }
+    .google-signin-btn img {
+        height: 20px;
+        width: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: #fff;
+      border-radius: 0.5rem; /* rounded corners for table */
+      overflow: hidden; /* Ensures rounded corners apply to content */
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    }
+    th, td {
+      border: 1px solid #e5e7eb; /* Lighter border for cells */
+      padding: 12px 16px; /* Increased padding */
+      text-align: left;
+      user-select: none;
+    }
+    th {
+      background-color: #2c3e50; /* Dark blue-gray */
+      color: white;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.875rem; /* Smaller font size for headers */
+      cursor: pointer;
+    }
+    th.sort-asc::after {
+      content: " ▲";
+      font-size: 0.7em;
+    }
+    th.sort-desc::after {
+      content: " ▼";
+      font-size: 0.7em;
+    }
+    img {
+      height: 40px;
+      width: 40px; /* Ensure images are square */
+      object-fit: cover; /* Cover the area, crop if necessary */
+      border-radius: 0.25rem; /* Slightly rounded image corners */
+    }
+
+    .popup {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #28a745;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 0.5rem; /* rounded corners */
+      display: none;
+      z-index: 1000;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      font-weight: 500;
+    }
+
+    /* Styles for the checkbox and label */
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      gap: 8px; /* Space between checkbox and label */
+    }
+    .checkbox-container input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+      margin: 0; /* Remove default margin */
+    }
+
+    .search-container {
+      margin-top: 10px;
+      margin-bottom: 5px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+    .search-container input, .search-container select {
+      flex-grow: 1;
+      max-width: 300px;
+    }
+
+    .filter-label {
+      font-weight: 600;
+      color: #374151;
+      margin-right: 8px;
+    }
+  </style>
+  	<script src="./firebase-app-compat.js"></script>
+	<script src="./firebase-firestore-compat.js"></script>
+	<script src="./firebase-auth-compat.js"></script>
+</head>
+<body class="p-5">
+
+<div class="popup" id="popupMsg"></div>
+
+<div id="loginSection" class="fixed inset-0 bg-gray-100 flex flex-col items-center justify-center p-5 z-50">
+    <div class="bg-white p-10 rounded-lg shadow-xl text-center">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">One Gate Admin Login</h1>
+        <p class="text-gray-600 mb-6">Please sign in with your admin Google account to access the panel.</p>
+        <button id="google-signin-btn" class="google-signin-btn" onclick="signInWithGoogle()">
+            <img src="https://www.gstatic.com/images/branding/product/2x/google_g_lockup_48dp.png" alt="Google logo">
+            Sign in with Google
+        </button>
+    </div>
+</div>
+
+<div id="adminPanel" class="container mx-auto p-4 bg-white shadow-lg rounded-lg" style="display:none;">
+  <div class="flex justify-between items-center mb-6">
+    <h2 class="text-4xl font-bold text-gray-800">🔥 One Gate Admin Panel</h2>
+    <div class="flex items-center gap-4">
+        <span id="adminEmailDisplay" class="font-semibold text-gray-700"></span>
+        <button class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600" onclick="signOutUser()">Sign Out</button>
+    </div>
+  </div>
+
+  <div class="mb-8 p-6 bg-gray-50 rounded-lg shadow-inner">
+    <h3 class="text-2xl font-semibold text-gray-700 mb-4">Add Category</h3>
+    <div class="flex flex-wrap items-center gap-4">
+      <input id="catName" placeholder="Category Name" class="flex-grow">
+      <input id="catImage" placeholder="Image URL" class="flex-grow">
+      <input type="number" id="catPriority" placeholder="Priority" value="1" class="w-24">
+      <div class="checkbox-container">
+        <input type="checkbox" id="catEnable" checked>
+        <label for="catEnable" class="text-gray-700">Enabled</label>
+      </div>
+      <button class="add" onclick="addCategory()">Add Category</button>
+    </div>
+  </div>
+
+  <div class="mb-8 p-6 bg-gray-50 rounded-lg shadow-inner">
+    <h3 class="text-2xl font-semibold text-gray-700 mb-4">Add Subcategory</h3>
+    <div class="flex flex-wrap items-center gap-4">
+      <input id="subName" placeholder="Subcategory Name" class="flex-grow">
+      <input id="subImage" placeholder="Image URL" class="flex-grow">
+      <input id="subLink" placeholder="Affiliated Link URL" class="flex-grow">
+      <input type="number" id="subPriority" placeholder="Priority" value="1" class="w-24">
+      <div class="checkbox-container">
+        <input type="checkbox" id="subEnable" checked>
+        <label for="subEnable" class="text-gray-700">Enabled</label>
+      </div>
+      <select id="subCategoryId" class="flex-grow"></select>
+      <button class="add" onclick="addSubcategory()">Add Subcategory</button>
+    </div>
+  </div>
+
+    <h3 class="text-2xl font-semibold text-gray-700 mb-2 mt-8">📁 Categories</h3>
+  <div class="search-container">
+    <input type="text" id="categorySearch" placeholder="Search categories by name...">
+  </div>
+  <div class="overflow-x-auto">
+    <table id="categoryTable">
+      <thead>
+        <tr>
+          <th data-key="name">Name</th>
+          <th data-key="image">Image URL</th>
+          <th>Preview</th>
+          <th data-key="priority" data-type="number">Priority</th>
+          <th data-key="enable" data-type="boolean">Enabled</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+    <h3 class="text-2xl font-semibold text-gray-700 mb-2 mt-8">📁 Subcategories</h3>
+  <div class="search-container">
+    <label class="filter-label" for="subcategoryCategoryFilter">Filter by Category:</label>
+    <select id="subcategoryCategoryFilter" style="max-width: 250px;">
+      <option value="all" selected>All Categories</option>
+    </select>
+    <input type="text" id="subcategorySearch" placeholder="Search subcategories by name...">
+  </div>
+  <div class="overflow-x-auto">
+    <table id="subcategoryTable">
+      <thead>
+        <tr>
+          <th data-key="name">Name</th>
+          <th data-key="image">Image URL</th>
+          <th>Preview</th>
+          <th data-key="link">Link</th>
+          <th data-key="category_id">Category ID</th>
+          <th data-key="priority" data-type="number">Priority</th>
+          <th data-key="enable" data-type="boolean">Enabled</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // Firebase configuration (REPLACE WITH YOUR ACTUAL CONFIG IF DIFFERENT)
+  const firebaseConfig = {
+    apiKey: "AIzaSyBtRDC12HbjDFPKrXV0Ky2iFUmYq_lSErY",
+    authDomain: "all-in-one-app-5d42c.firebaseapp.com",
+    projectId: "all-in-one-app-5d42c",
+    storageBucket: "all-in-one-app-5d42c.firebasestorage.app",
+    messagingSenderId: "82170965701",
+    appId: "1:82170965701:android:cacaba1a057d1615048aac"
+  };
+  // Initialize Firebase app
+  firebase.initializeApp(firebaseConfig);
+  // Get Firestore and Auth instances
+  const db = firebase.firestore();
+  const auth = firebase.auth();
+  const provider = new firebase.auth.GoogleAuthProvider();
+
+  // Admin email to check against
+  const ADMIN_EMAIL = 'contact.appintech@gmail.com';
+
+  // DOM Elements
+  const popup = document.getElementById('popupMsg');
+  const catSelect = document.getElementById("subCategoryId");
+  const catTableBody = document.querySelector("#categoryTable tbody");
+  const subTableBody = document.querySelector("#subcategoryTable tbody");
+  const categorySearchInput = document.getElementById("categorySearch");
+  const subcategorySearchInput = document.getElementById("subcategorySearch");
+  const subcategoryCategoryFilter = document.getElementById("subcategoryCategoryFilter");
+  const loginSection = document.getElementById('loginSection');
+  const adminPanel = document.getElementById('adminPanel');
+  const adminEmailDisplay = document.getElementById('adminEmailDisplay');
+
+  // Data storage for filtering and sorting
+  let categoriesData = [];
+  let subcategoriesData = [];
+
+  // Sorting state for each table
+  let categorySortState = { key: null, direction: 1 };
+  let subcategorySortState = { key: null, direction: 1 };
+
+  // Show popup message
+  function showPopup(msg) {
+    popup.innerText = msg;
+    popup.style.display = 'block';
+    setTimeout(() => popup.style.display = 'none', 2000);
+  }
+
+  // Confirmation dialog
+  function showConfirmDialog(message) {
+    return new Promise(resolve => {
+      const dialogId = 'confirmDialog-' + Date.now();
+      const dialogHtml = `
+        <div id="${dialogId}" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
+          <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+            <p class="text-lg font-semibold mb-4">${message}</p>
+            <div class="flex justify-end gap-3">
+              <button id="cancelBtn-${dialogId}" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+              <button id="confirmBtn-${dialogId}" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirm</button>
+            </div>
+          </div>
+        </div>`;
+      document.body.insertAdjacentHTML('beforeend', dialogHtml);
+      const dialog = document.getElementById(dialogId);
+      document.getElementById(`confirmBtn-${dialogId}`).onclick = () => { dialog.remove(); resolve(true); };
+      document.getElementById(`cancelBtn-${dialogId}`).onclick = () => { dialog.remove(); resolve(false); };
+    });
+  }
+
+  // --- AUTHENTICATION FUNCTIONS ---
+  async function signInWithGoogle() {
+      try {
+          await auth.signInWithPopup(provider);
+          // auth.onAuthStateChanged will handle the rest
+      } catch (error) {
+          console.error("Google Sign-in failed:", error);
+          showPopup("Sign-in failed. Please try again.");
+      }
+  }
+
+  async function signOutUser() {
+      try {
+          await auth.signOut();
+          showPopup("Signed out successfully.");
+      } catch (error) {
+          console.error("Sign out failed:", error);
+          showPopup("Sign out failed. Please try again.");
+      }
+  }
+
+  // Auth state listener to show/hide the admin panel
+  auth.onAuthStateChanged(user => {
+      if (user) {
+          adminEmailDisplay.innerText = `Signed in as: ${user.email}`;
+          if (user.email === ADMIN_EMAIL) {
+              // Admin is signed in, show the panel
+              loginSection.style.display = 'none';
+              adminPanel.style.display = 'block';
+              loadData(); // Load data only when admin is logged in
+          } else {
+              // Not the admin account
+              loginSection.style.display = 'flex';
+              adminPanel.style.display = 'none';
+              showPopup("Access Denied. Please sign in with the admin account.");
+              signOutUser(); // Force sign out non-admin users
+          }
+      } else {
+          // No user is signed in, show login page
+          loginSection.style.display = 'flex';
+          adminPanel.style.display = 'none';
+      }
+  });
+
+  // Add Category to Firestore
+  async function addCategory() {
+    const name = document.getElementById("catName").value.trim();
+    const image = document.getElementById("catImage").value.trim();
+    const priority = parseInt(document.getElementById("catPriority").value, 10) || 1;
+    const enable = document.getElementById("catEnable").checked;
+
+    if (!name || !image) {
+      showPopup("Please fill all category fields.");
+      return;
+    }
+
+    try {
+      await db.collection("categories").doc(name).set({ name, image, priority, enable });
+      categoriesData.push({ name, image, priority, enable });
+      refreshCategoryTable();
+      refreshCategoryFilterOptions();
+      showPopup("Category added successfully!");
+      // Clear inputs
+      document.getElementById("catName").value = "";
+      document.getElementById("catImage").value = "";
+      document.getElementById("catPriority").value = "1";
+      document.getElementById("catEnable").checked = true;
+    } catch (error) {
+      console.error("Error adding category: ", error);
+      showPopup("Error adding category.");
+    }
+  }
+
+  // Add Subcategory to Firestore
+  async function addSubcategory() {
+    const name = document.getElementById("subName").value.trim();
+    const image = document.getElementById("subImage").value.trim();
+    const link = document.getElementById("subLink").value.trim();
+    const category_id = document.getElementById("subCategoryId").value;
+    const priority = parseInt(document.getElementById("subPriority").value, 10) || 1;
+    const enable = document.getElementById("subEnable").checked;
+
+    if (!name || !image || !link || !category_id) {
+      showPopup("Please fill all subcategory fields.");
+      return;
+    }
+
+    try {
+      await db.collection("subcategories").doc(name).set({ name, image, link, category_id, priority, enable });
+      subcategoriesData.push({ name, image, link, category_id, priority, enable });
+      refreshSubcategoryTable();
+      showPopup("Subcategory added successfully!");
+      // Clear inputs
+      document.getElementById("subName").value = "";
+      document.getElementById("subImage").value = "";
+      document.getElementById("subLink").value = "";
+      document.getElementById("subPriority").value = "1";
+      document.getElementById("subEnable").checked = true;
+    } catch (error) {
+      console.error("Error adding subcategory: ", error);
+      showPopup("Error adding subcategory.");
+    }
+  }
+
+  // Build category row HTML string
+  function buildCatRow(item) {
+    const { name, image, priority, enable } = item;
+    return `
+      <td><input value="${name}" disabled class="w-full bg-transparent border-0"></td>
+      <td><input value="${image}" disabled class="w-full bg-transparent border-0"></td>
+      <td><img src="${image}" alt="${name} image" onerror="this.onerror=null;this.src='https://placehold.co/40x40/cccccc/000000?text=No+Img';"></td>
+      <td><input type="number" value="${priority}" disabled class="w-full bg-transparent border-0"></td>
+      <td><input type="checkbox" ${enable ? 'checked' : ''} disabled></td>
+      <td class="whitespace-nowrap">
+        <button class="edit" onclick="enableEdit(this)">Edit</button>
+        <button class="update" onclick="updateCategory('${name}', this)" style="display:none;">Update</button>
+        <button class="delete" onclick="deleteCategory('${name}', this)">Delete</button>
+      </td>`;
+  }
+
+  // Build subcategory row HTML string
+  function buildSubRow(item) {
+    const { name, image, link, category_id, priority, enable } = item;
+    return `
+      <td><input value="${name}" disabled class="w-full bg-transparent border-0"></td>
+      <td><input value="${image}" disabled class="w-full bg-transparent border-0"></td>
+      <td><img src="${image}" alt="${name} image" onerror="this.onerror=null;this.src='https://placehold.co/40x40/cccccc/000000?text=No+Img';"></td>
+      <td><input value="${link}" disabled class="w-full bg-transparent border-0"></td>
+      <td><input value="${category_id}" disabled class="w-full bg-transparent border-0"></td>
+      <td><input type="number" value="${priority}" disabled class="w-full bg-transparent border-0"></td>
+      <td><input type="checkbox" ${enable ? 'checked' : ''} disabled></td>
+      <td class="whitespace-nowrap">
+        <button class="edit" onclick="enableEdit(this)">Edit</button>
+        <button class="update" onclick="updateSubcategory('${name}', this)" style="display:none;">Update</button>
+        <button class="delete" onclick="deleteSubcategory('${name}', this)">Delete</button>
+      </td>`;
+  }
+
+  // Enable editing row inputs
+  function enableEdit(btn) {
+    const row = btn.closest("tr");
+    row.querySelectorAll("input").forEach(i => i.disabled = false);
+    row.querySelector(".update").style.display = "inline-block";
+    btn.style.display = "none";
+  }
+
+  // Update category Firestore and UI
+  async function updateCategory(id, btn) {
+    const rowCells = btn.closest("tr").children;
+    const name = rowCells[0].querySelector("input").value.trim();
+    const image = rowCells[1].querySelector("input").value.trim();
+    const priority = parseInt(rowCells[3].querySelector("input").value, 10) || 1;
+    const enable = rowCells[4].querySelector("input").checked;
+
+    try {
+      await db.collection("categories").doc(id).set({ name, image, priority, enable });
+      // Update categoriesData
+      const index = categoriesData.findIndex(c => c.name === id);
+      if (index !== -1) {
+        categoriesData[index] = { name, image, priority, enable };
+      }
+      refreshCategoryTable();
+      refreshCategoryFilterOptions();
+      showPopup("Category updated successfully!");
+    } catch (error) {
+      console.error("Error updating category:", error);
+      showPopup("Failed to update category.");
+    }
+  }
+
+  // Update subcategory Firestore and UI
+  async function updateSubcategory(id, btn) {
+    const rowCells = btn.closest("tr").children;
+    const name = rowCells[0].querySelector("input").value.trim();
+    const image = rowCells[1].querySelector("input").value.trim();
+    const link = rowCells[3].querySelector("input").value.trim();
+    const category_id = rowCells[4].querySelector("input").value.trim();
+    const priority = parseInt(rowCells[5].querySelector("input").value, 10) || 1;
+    const enable = rowCells[6].querySelector("input").checked;
+
+    try {
+      await db.collection("subcategories").doc(id).set({ name, image, link, category_id, priority, enable });
+      // Update subcategoriesData
+      const index = subcategoriesData.findIndex(s => s.name === id);
+      if (index !== -1) {
+        subcategoriesData[index] = { name, image, link, category_id, priority, enable };
+      }
+      refreshSubcategoryTable();
+      showPopup("Subcategory updated successfully!");
+    } catch (error) {
+      console.error("Error updating subcategory:", error);
+      showPopup("Failed to update subcategory.");
+    }
+  }
+
+  // Delete category Firestore and update UI
+  async function deleteCategory(id, btn) {
+    if (!await showConfirmDialog(`Are you sure you want to delete category '${id}'?`)) return;
+
+    try {
+      await db.collection("categories").doc(id).delete();
+      categoriesData = categoriesData.filter(c => c.name !== id);
+      refreshCategoryTable();
+      refreshCategoryFilterOptions();
+
+      // Also delete subcategories with this category_id
+      const toDeleteSubs = subcategoriesData.filter(s => s.category_id === id);
+      for (const sub of toDeleteSubs) {
+        await db.collection("subcategories").doc(sub.name).delete();
+      }
+      subcategoriesData = subcategoriesData.filter(s => s.category_id !== id);
+      refreshSubcategoryTable();
+
+      showPopup("Category and its subcategories deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      showPopup("Failed to delete category.");
+    }
+  }
+
+  // Delete subcategory Firestore and update UI
+  async function deleteSubcategory(id, btn) {
+    if (!await showConfirmDialog(`Are you sure you want to delete subcategory '${id}'?`)) return;
+
+    try {
+      await db.collection("subcategories").doc(id).delete();
+      subcategoriesData = subcategoriesData.filter(s => s.name !== id);
+      refreshSubcategoryTable();
+      showPopup("Subcategory deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting subcategory:", error);
+      showPopup("Failed to delete subcategory.");
+    }
+  }
+
+  // Refresh category dropdown filter for subcategory form and filter section
+  function refreshCategoryFilterOptions() {
+    // Clear dropdowns
+    catSelect.innerHTML = "";
+    subcategoryCategoryFilter.innerHTML = '<option value="all" selected>All Categories</option>';
+
+    // Sort categories by priority ascending for dropdowns
+    const sortedCats = [...categoriesData].sort((a, b) => a.priority - b.priority);
+
+    for (const cat of sortedCats) {
+      const option1 = document.createElement("option");
+      option1.value = cat.name;
+      option1.textContent = cat.name;
+      catSelect.appendChild(option1);
+
+      const option2 = document.createElement("option");
+      option2.value = cat.name;
+      option2.textContent = cat.name;
+      subcategoryCategoryFilter.appendChild(option2);
+    }
+  }
+
+  // Refresh category table based on filter/sort/search
+  function refreshCategoryTable() {
+    // Filter by search
+    const searchText = categorySearchInput.value.toLowerCase();
+
+    // Copy categoriesData
+    let filtered = categoriesData.filter(c => c.name.toLowerCase().includes(searchText));
+
+    // Sort if applicable
+    if (categorySortState.key) {
+      const key = categorySortState.key;
+      const dir = categorySortState.direction;
+      filtered.sort((a, b) => {
+        let valA = a[key];
+        let valB = b[key];
+        // For booleans, convert true=>1 false=>0
+        if (typeof valA === 'boolean') valA = valA ? 1 : 0;
+        if (typeof valB === 'boolean') valB = valB ? 1 : 0;
+        // For numbers
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          return dir * (valA - valB);
+        }
+        // Strings compare
+        return dir * valA.toString().localeCompare(valB.toString());
+      });
+    }
+
+    // Render rows
+    catTableBody.innerHTML = "";
+    for (const cat of filtered) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = buildCatRow(cat);
+      catTableBody.appendChild(tr);
+    }
+  }
+
+  // Refresh subcategory table based on filter/sort/search
+  function refreshSubcategoryTable() {
+    const searchText = subcategorySearchInput.value.toLowerCase();
+    const filterCat = subcategoryCategoryFilter.value;
+
+    let filtered = subcategoriesData.filter(s => 
+      s.name.toLowerCase().includes(searchText) &&
+      (filterCat === "all" || s.category_id === filterCat)
+    );
+
+    if (subcategorySortState.key) {
+      const key = subcategorySortState.key;
+      const dir = subcategorySortState.direction;
+      filtered.sort((a, b) => {
+        let valA = a[key];
+        let valB = b[key];
+        // Boolean conversion
+        if (typeof valA === 'boolean') valA = valA ? 1 : 0;
+        if (typeof valB === 'boolean') valB = valB ? 1 : 0;
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          return dir * (valA - valB);
+        }
+        return dir * valA.toString().localeCompare(valB.toString());
+      });
+    }
+
+    subTableBody.innerHTML = "";
+    for (const sub of filtered) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = buildSubRow(sub);
+      subTableBody.appendChild(tr);
+    }
+  }
+
+  // Load categories and subcategories from Firestore initially
+  async function loadData() {
+    try {
+      const catSnap = await db.collection("categories").get();
+      categoriesData = catSnap.docs.map(doc => doc.data());
+
+      const subSnap = await db.collection("subcategories").get();
+      subcategoriesData = subSnap.docs.map(doc => doc.data());
+
+      refreshCategoryFilterOptions();
+      refreshCategoryTable();
+      refreshSubcategoryTable();
+    } catch (error) {
+      console.error("Error loading data:", error);
+      showPopup("Error loading initial data.");
+    }
+  }
+
+  // Attach event listeners for search inputs and filter select
+  categorySearchInput.addEventListener('input', refreshCategoryTable);
+  subcategorySearchInput.addEventListener('input', refreshSubcategoryTable);
+  subcategoryCategoryFilter.addEventListener('change', refreshSubcategoryTable);
+
+  // Sorting logic on header click for categories
+  document.querySelectorAll("#categoryTable th[data-key]").forEach(th => {
+    th.addEventListener("click", () => {
+      const key = th.getAttribute("data-key");
+      const type = th.getAttribute("data-type") || "string";
+      if (categorySortState.key === key) {
+        categorySortState.direction = -categorySortState.direction;
+      } else {
+        categorySortState.key = key;
+        categorySortState.direction = 1;
+      }
+      updateSortIndicators("#categoryTable", categorySortState);
+      refreshCategoryTable();
+    });
+  });
+
+  // Sorting logic on header click for subcategories
+  document.querySelectorAll("#subcategoryTable th[data-key]").forEach(th => {
+    th.addEventListener("click", () => {
+      const key = th.getAttribute("data-key");
+      const type = th.getAttribute("data-type") || "string";
+      if (subcategorySortState.key === key) {
+        subcategorySortState.direction = -subcategorySortState.direction;
+      } else {
+        subcategorySortState.key = key;
+        subcategorySortState.direction = 1;
+      }
+      updateSortIndicators("#subcategoryTable", subcategorySortState);
+      refreshSubcategoryTable();
+    });
+  });
+
+  // Update sort arrow indicators in table headers
+  function updateSortIndicators(tableSelector, sortState) {
+    const ths = document.querySelectorAll(tableSelector + " th[data-key]");
+    ths.forEach(th => {
+      th.classList.remove("sort-asc", "sort-desc");
+      if (th.getAttribute("data-key") === sortState.key) {
+        th.classList.add(sortState.direction === 1 ? "sort-asc" : "sort-desc");
+      }
+    });
+  }
+
+  // Do not load data on page load, wait for admin login
+  // loadData(); 
+</script>
+
+</body>
+</html>
